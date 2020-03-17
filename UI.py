@@ -9,7 +9,7 @@
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 from skimage import io, color
-from skimage.transform import rescale
+from skimage.transform import rescale, resize
 from math import pi, radians, cos, sin, ceil
 from time import sleep
 import numpy as np
@@ -152,7 +152,7 @@ class Ui_MainWindow(object):
         self.sinogram.setAlignment(QtCore.Qt.AlignLeft)
 
 
-    def generateSinogram(self):
+    def generateSinogram(self, step=1, numOfDetectors=180):
         img = io.imread(self.imagePath)
         img = color.rgb2gray(img)
         if max(len(img), len(img[0])) > 1000:
@@ -163,89 +163,90 @@ class Ui_MainWindow(object):
         m = len(img[0]) // 2
         n = len(img) // 2
         romax = ceil((len(img) ** 2 + len(img[0]) ** 2) ** 0.5)
-        sinogram = np.zeros((romax + 1, 180))
+        sinogram = np.zeros(((romax + 1), 180//step))
         radius = round(romax / 2)
-        for k in range(1, 46):
-            rads = radians(k)
-            a = -cos(rads)/sin(rads)
-            for ro in range(1, romax):
-                distance = ro - radius
-                b = distance / sin(rads)
-                ymax = min(round(-a*m + b), n - 1)
-                ymin = max(round(a*m + b), -n)
-                for y in range(ymin, ymax):
-                    x = (y-b) / a
-                    xfloor = x // 1
-                    xup = x - xfloor
-                    xlow = 1 - xup
-                    x = xfloor
-                    x = max(x, -m)
-                    x = min(x, m -2)
-                    x = int(x)
-                    #print(x+m+2)
-                    sinogram[romax - ro][180 - k - 1] += xlow * img[y + n][x + m]
-                    sinogram[romax - ro][180 - k - 1] += xup * img[y + n][x + m + 1]
-        for k in range(46, 91):
-            rads = radians(k)
-            a = -cos(rads)/sin(rads)
-            for ro in range(1, romax):
-                distance = ro - radius
-                b = distance / sin(rads)
-                xmax = min(round((-n-b) / a), m - 1)
-                xmin = max(round((n-b) / a), -m)
-                for x in range(xmin, xmax):
-                    y = a*x + b
-                    yfloor = y // 1
-                    yup = y - yfloor
-                    ylow = 1 - yup
-                    y = yfloor
-                    y = max(y, -n)
-                    y = min(y, n -2)
-                    y = int(y)
-                    sinogram[romax - ro][180 - k - 1] += ylow * img[y + n][x + m]
-                    sinogram[romax - ro][180 - k - 1] += yup * img[y + n + 1][x + m]
-        for k in range(91, 136):
-            rads = radians(k)
-            a = -cos(rads)/sin(rads)
-            for ro in range(1, romax):
-                distance = ro - radius
-                b = distance / sin(rads)
-                xmax = min(round((n-b) / a), m - 1)
-                xmin = max(round((-n-b) / a), -m)
-                for x in range(xmin, xmax):
-                    y = a * x + b
-                    yfloor = y // 1
-                    yup = y - yfloor
-                    ylow = 1 - yup
-                    y = yfloor
-                    y = max(y, -n)
-                    y = min(y, n - 2)
-                    y = int(y)
-                    sinogram[romax - ro][180 - k - 1] += ylow * img[y + n][x + m]
-                    sinogram[romax - ro][180 - k - 1] += yup * img[y + n + 1][x + m]
-        for k in range(136, 180):
-            rads = radians(k)
-            a = -cos(rads)/sin(rads)
-            for ro in range(1, romax):
-                distance = ro - radius
-                b = distance / sin(rads)
-                ymax = min(round(a * m + b), n - 1)
-                ymin = max(round(-a * m + b), -n)
-                for y in range(ymin, ymax):
-                    x = (y - b) / a
-                    xfloor = x // 1
-                    xup = x - xfloor
-                    xlow = 1 - xup
-                    x = xfloor
-                    x = max(x, -m)
-                    x = min(x, m - 2)
-                    x = int(x)
-                    sinogram[romax - ro][180 - k - 1] += xlow * img[y + n][x + m]
-                    sinogram[romax - ro][180 - k - 1] += xup * img[y + n][x + m + 1]
+        for k in range(1, 180, step):
+            if k < 46:
+                rads = radians(k)
+                a = -cos(rads)/sin(rads)
+                for detector in range(1, romax):
+                    distance = detector - radius
+                    b = distance / sin(rads)
+                    ymax = min(round(-a*m + b), n - 1)
+                    ymin = max(round(a*m + b), -n)
+                    for y in range(ymin, ymax):
+                        x = (y-b) / a
+                        xfloor = x // 1
+                        xup = x - xfloor
+                        xlow = 1 - xup
+                        x = xfloor
+                        x = max(x, -m)
+                        x = min(x, m -2)
+                        x = int(x)
+                        sinogram[(romax - detector) - 1][(180 - k)//step - 1] += xlow * img[y + n][x + m]
+                        sinogram[(romax - detector) - 1][(180 - k)//step - 1] += xup * img[y + n][x + m + 1]
+            elif k < 91:
+                rads = radians(k)
+                a = -cos(rads) / sin(rads)
+                for detector in range(1, romax):
+                    distance = detector - radius
+                    b = distance / sin(rads)
+                    xmax = min(round((-n - b) / a), m - 1)
+                    xmin = max(round((n - b) / a), -m)
+                    for x in range(xmin, xmax):
+                        y = a * x + b
+                        yfloor = y // 1
+                        yup = y - yfloor
+                        ylow = 1 - yup
+                        y = yfloor
+                        y = max(y, -n)
+                        y = min(y, n - 2)
+                        y = int(y)
+                        sinogram[(romax - detector) - 1][(180 - k) // step - 1] += ylow * img[y + n][x + m]
+                        sinogram[(romax - detector) - 1][(180 - k) // step - 1] += yup * img[y + n + 1][x + m]
+            elif k < 136:
+                rads = radians(k)
+                a = -cos(rads) / sin(rads)
+                for detector in range(1, romax):
+                    distance = detector - radius
+                    b = distance / sin(rads)
+                    xmax = min(round((n - b) / a), m - 1)
+                    xmin = max(round((-n - b) / a), -m)
+                    for x in range(xmin, xmax):
+                        y = a * x + b
+                        yfloor = y // 1
+                        yup = y - yfloor
+                        ylow = 1 - yup
+                        y = yfloor
+                        y = max(y, -n)
+                        y = min(y, n - 2)
+                        y = int(y)
+                        sinogram[(romax - detector) - 1][(180 - k) // step - 1] += ylow * img[y + n][x + m]
+                        sinogram[(romax - detector) - 1][(180 - k) // step - 1] += yup * img[y + n + 1][x + m]
+            elif k < 180:
+                rads = radians(k)
+                a = -cos(rads) / sin(rads)
+                for detector in range(1, romax):
+                    distance = detector - radius
+                    b = distance / sin(rads)
+                    ymax = min(round(a * m + b), n - 1)
+                    ymin = max(round(-a * m + b), -n)
+                    for y in range(ymin, ymax):
+                        x = (y - b) / a
+                        xfloor = x // 1
+                        xup = x - xfloor
+                        xlow = 1 - xup
+                        x = xfloor
+                        x = max(x, -m)
+                        x = min(x, m - 2)
+                        x = int(x)
+                        sinogram[(romax - detector) - 1][(180 - k) // step - 1] += xlow * img[y + n][x + m]
+                        sinogram[(romax - detector) - 1][(180 - k) // step - 1] += xup * img[y + n][x + m + 1]
+        sinogram = resize(sinogram, (191, 251))
         io.imsave("sinogram.png", sinogram)
         self.sinogramPath = "sinogram.png"
         self.progressSlider.setMinimum(0)
-        self.progressSlider.setMaximum(180)
+        self.progressSlider.setMaximum(251)
         self.progressSlider.setSingleStep(1)
         self.progressSlider.valueChanged.connect(self.showSinogram)
 
