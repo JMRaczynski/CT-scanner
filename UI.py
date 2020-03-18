@@ -141,7 +141,7 @@ class Ui_MainWindow(object):
             pixmap = pixmap.scaled(self.inputImage.width(), self.inputImage.height(), QtCore.Qt.KeepAspectRatio)
             self.inputImage.setPixmap(pixmap)
             self.inputImage.setAlignment(QtCore.Qt.AlignCenter)
-            self.generateSinogram()
+            self.generateSinogram(int(self.alphaStepTextfield.text()), int(self.numOfDetectorsTextfield.text()), int(self.angularRangeTextfield.text()))
 
     def showSinogram(self, width):
         img = QtGui.QImage(self.sinogramPath)
@@ -152,7 +152,7 @@ class Ui_MainWindow(object):
         self.sinogram.setAlignment(QtCore.Qt.AlignLeft)
 
 
-    def generateSinogram(self, step=1, numOfDetectors=180):
+    def generateSinogram(self, step, numOfDetectors, angleRange):
         img = io.imread(self.imagePath)
         img = color.rgb2gray(img)
         if max(len(img), len(img[0])) > 1000:
@@ -163,13 +163,32 @@ class Ui_MainWindow(object):
         m = len(img[0]) // 2
         n = len(img) // 2
         romax = ceil((len(img) ** 2 + len(img[0]) ** 2) ** 0.5)
-        sinogram = np.zeros(((romax + 1), 180//step))
+        sinogram = np.zeros((numOfDetectors, 180//step))
+        print(len(sinogram), len(sinogram[0]))
         radius = round(romax / 2)
+        radius2 = ((len(img) ** 2 + len(img[0]) ** 2) ** 0.5) / 2
         for k in range(1, 180, step):
             if k < 46:
-                rads = radians(k)
-                a = -cos(rads)/sin(rads)
-                for detector in range(1, romax):
+                angles = np.linspace(k, k + angleRange, numOfDetectors)
+                a = sin(radians(angles[numOfDetectors//2])) / cos(radians(angles[numOfDetectors//2]))
+                for i, angle in enumerate(angles):
+                    emiterX = radius2 * cos(radians(angle))
+                    emiterY = radius2 * sin(radians(angle))
+                    b = emiterY - a*emiterX
+                    #ymax = min(int(round(-a * m + b)), n - 1)
+                    #ymin = max(int(round(a * m + b)), -n)
+                    for y in range(-n, n-1):
+                        x = (y - b) / a
+                        xfloor = x // 1
+                        xup = x - xfloor
+                        xlow = 1 - xup
+                        x = xfloor
+                        x = max(x, -m)
+                        x = min(x, m - 2)
+                        x = int(x)
+                        sinogram[i][(180 - k) // step - 1] += xlow * img[y + n][x + m]
+                        sinogram[i][(180 - k) // step - 1] += xup * img[y + n][x + m + 1]
+                """for detector in range(1, romax):
                     distance = detector - radius
                     b = distance / sin(rads)
                     ymax = min(round(-a*m + b), n - 1)
@@ -183,12 +202,32 @@ class Ui_MainWindow(object):
                         x = max(x, -m)
                         x = min(x, m -2)
                         x = int(x)
+                        if k == 1:
+                            print(romax - detector)
                         sinogram[(romax - detector) - 1][(180 - k)//step - 1] += xlow * img[y + n][x + m]
-                        sinogram[(romax - detector) - 1][(180 - k)//step - 1] += xup * img[y + n][x + m + 1]
+                        sinogram[(romax - detector) - 1][(180 - k)//step - 1] += xup * img[y + n][x + m + 1]"""
             elif k < 91:
                 rads = radians(k)
-                a = -cos(rads) / sin(rads)
-                for detector in range(1, romax):
+                angles = np.linspace(k, k + angleRange, numOfDetectors)
+                a = sin(radians(angles[numOfDetectors // 2])) / cos(radians(angles[numOfDetectors // 2]))
+                for i, angle in enumerate(angles):
+                    emiterX = radius2 * cos(radians(angle))
+                    emiterY = radius2 * sin(radians(angle))
+                    b = emiterY - a * emiterX
+                    #xmax = min(round((-n - b) / a), m - 1)
+                    #xmin = max(round((n - b) / a), -m)
+                    for x in range(-m, m - 1):
+                        y = a * x + b
+                        yfloor = y // 1
+                        yup = y - yfloor
+                        ylow = 1 - yup
+                        y = yfloor
+                        y = max(y, -n)
+                        y = min(y, n - 2)
+                        y = int(y)
+                        sinogram[i][(180 - k) // step - 1] += ylow * img[y + n][x + m]
+                        sinogram[i][(180 - k) // step - 1] += yup * img[y + n + 1][x + m]
+                """for detector in range(1, romax):
                     distance = detector - radius
                     b = distance / sin(rads)
                     xmax = min(round((-n - b) / a), m - 1)
@@ -203,11 +242,28 @@ class Ui_MainWindow(object):
                         y = min(y, n - 2)
                         y = int(y)
                         sinogram[(romax - detector) - 1][(180 - k) // step - 1] += ylow * img[y + n][x + m]
-                        sinogram[(romax - detector) - 1][(180 - k) // step - 1] += yup * img[y + n + 1][x + m]
+                        sinogram[(romax - detector) - 1][(180 - k) // step - 1] += yup * img[y + n + 1][x + m]"""
             elif k < 136:
-                rads = radians(k)
-                a = -cos(rads) / sin(rads)
-                for detector in range(1, romax):
+                angles = np.linspace(k, k + angleRange, numOfDetectors)
+                a = sin(radians(angles[numOfDetectors // 2])) / cos(radians(angles[numOfDetectors // 2]))
+                for i, angle in enumerate(angles):
+                    emiterX = radius2 * cos(radians(angle))
+                    emiterY = radius2 * sin(radians(angle))
+                    b = emiterY - a * emiterX
+                    #xmax = min(round((n - b) / a), m - 1)
+                    #xmin = max(round((-n - b) / a), -m)
+                    for x in range(-m, m - 1):
+                        y = a * x + b
+                        yfloor = y // 1
+                        yup = y - yfloor
+                        ylow = 1 - yup
+                        y = yfloor
+                        y = max(y, -n)
+                        y = min(y, n - 2)
+                        y = int(y)
+                        sinogram[i][(180 - k) // step - 1] += ylow * img[y + n][x + m]
+                        sinogram[i][(180 - k) // step - 1] += yup * img[y + n + 1][x + m]
+                """for detector in range(1, romax):
                     distance = detector - radius
                     b = distance / sin(rads)
                     xmax = min(round((n - b) / a), m - 1)
@@ -222,11 +278,28 @@ class Ui_MainWindow(object):
                         y = min(y, n - 2)
                         y = int(y)
                         sinogram[(romax - detector) - 1][(180 - k) // step - 1] += ylow * img[y + n][x + m]
-                        sinogram[(romax - detector) - 1][(180 - k) // step - 1] += yup * img[y + n + 1][x + m]
+                        sinogram[(romax - detector) - 1][(180 - k) // step - 1] += yup * img[y + n + 1][x + m]"""
             elif k < 180:
-                rads = radians(k)
-                a = -cos(rads) / sin(rads)
-                for detector in range(1, romax):
+                angles = np.linspace(k, k + angleRange, numOfDetectors)
+                a = sin(radians(angles[numOfDetectors // 2])) / cos(radians(angles[numOfDetectors // 2]))
+                for i, angle in enumerate(angles):
+                    emiterX = radius2 * cos(radians(angle))
+                    emiterY = radius2 * sin(radians(angle))
+                    b = emiterY - a * emiterX
+                    #ymax = min(int(round(a * m + b)), n - 1)
+                    #ymin = max(int(round(-a * m + b)), -n)
+                    for y in range(-n, n - 1):
+                        x = (y - b) / a
+                        xfloor = x // 1
+                        xup = x - xfloor
+                        xlow = 1 - xup
+                        x = xfloor
+                        x = max(x, -m)
+                        x = min(x, m - 2)
+                        x = int(x)
+                        sinogram[i][(180 - k) // step - 1] += xlow * img[y + n][x + m]
+                        sinogram[i][(180 - k) // step - 1] += xup * img[y + n][x + m + 1]
+                """for detector in range(1, romax):
                     distance = detector - radius
                     b = distance / sin(rads)
                     ymax = min(round(a * m + b), n - 1)
@@ -241,7 +314,7 @@ class Ui_MainWindow(object):
                         x = min(x, m - 2)
                         x = int(x)
                         sinogram[(romax - detector) - 1][(180 - k) // step - 1] += xlow * img[y + n][x + m]
-                        sinogram[(romax - detector) - 1][(180 - k) // step - 1] += xup * img[y + n][x + m + 1]
+                        sinogram[(romax - detector) - 1][(180 - k) // step - 1] += xup * img[y + n][x + m + 1]"""
         sinogram = resize(sinogram, (191, 251))
         io.imsave("sinogram.png", sinogram)
         self.sinogramPath = "sinogram.png"
