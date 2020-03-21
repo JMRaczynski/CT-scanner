@@ -10,8 +10,8 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
 from skimage import io, color
 from skimage.transform import rescale, resize
+from skimage.filters import gaussian
 from math import pi, radians, cos, sin, ceil
-from time import sleep
 import numpy as np
 import sys
 
@@ -25,6 +25,7 @@ class Ui_MainWindow(object):
         self.startButton = QtWidgets.QPushButton(self.centralwidget)
         self.startButton.setGeometry(QtCore.QRect(400, 510, 75, 23))
         self.startButton.setObjectName("startButton")
+        self.startButton.clicked.connect(self.startProcessing)
         self.chooseImageButton = QtWidgets.QPushButton(self.centralwidget)
         self.chooseImageButton.setGeometry(QtCore.QRect(170, 300, 75, 23))
         self.chooseImageButton.setObjectName("chooseImageButton")
@@ -66,11 +67,11 @@ class Ui_MainWindow(object):
         self.numOfDetectorsTextfield = QtWidgets.QLineEdit(self.centralwidget)
         self.numOfDetectorsTextfield.setGeometry(QtCore.QRect(170, 370, 113, 20))
         self.numOfDetectorsTextfield.setObjectName("numOfDetectorsTextfield")
-        self.numOfDetectorsTextfield.setText("90")
+        self.numOfDetectorsTextfield.setText("180")
         self.angularRangeTextfield = QtWidgets.QLineEdit(self.centralwidget)
         self.angularRangeTextfield.setGeometry(QtCore.QRect(170, 400, 113, 20))
         self.angularRangeTextfield.setObjectName("angularRangeTextfield")
-        self.angularRangeTextfield.setText("90")
+        self.angularRangeTextfield.setText("180")
         self.alphaStepLabel = QtWidgets.QLabel(self.centralwidget)
         self.alphaStepLabel.setGeometry(QtCore.QRect(60, 340, 81, 16))
         self.alphaStepLabel.setObjectName("alphaStepLabel")
@@ -144,7 +145,6 @@ class Ui_MainWindow(object):
             pixmap = pixmap.scaled(self.inputImage.width(), self.inputImage.height(), QtCore.Qt.KeepAspectRatio)
             self.inputImage.setPixmap(pixmap)
             self.inputImage.setAlignment(QtCore.Qt.AlignCenter)
-            self.generateSinogram(int(self.alphaStepTextfield.text()), int(self.numOfDetectorsTextfield.text()), int(self.angularRangeTextfield.text()))
 
     def showSinogram(self, width):
         img = QtGui.QImage(self.sinogramPath)
@@ -154,6 +154,17 @@ class Ui_MainWindow(object):
         self.sinogram.setPixmap(pixmap)
         self.sinogram.setAlignment(QtCore.Qt.AlignLeft)
 
+    def showReconstructed(self):
+        img = QtGui.QImage(self.reconstructedPath)
+        pixmap = QtGui.QPixmap(img)
+        pixmap = pixmap.scaled(self.outputImage.width(), self.outputImage.height(), QtCore.Qt.KeepAspectRatio)
+        self.outputImage.setPixmap(pixmap)
+        self.outputImage.setAlignment(QtCore.Qt.AlignLeft)
+
+
+    def startProcessing(self):
+        self.generateSinogram(float(self.alphaStepTextfield.text()), int(self.numOfDetectorsTextfield.text()),
+                              int(self.angularRangeTextfield.text()))
 
     def generateSinogram(self, step, numOfDetectors, angleRange):
         img = io.imread(self.imagePath)
@@ -165,9 +176,9 @@ class Ui_MainWindow(object):
         img = rescale(img, factor, anti_aliasing=False)
         m = len(img[0]) // 2
         n = len(img) // 2
-        sinogram = np.zeros((numOfDetectors, 180//step))
+        sinogram = np.zeros((numOfDetectors, int(180 / step)))
         radius = ((len(img) ** 2 + len(img[0]) ** 2) ** 0.5) / 2
-        for k in range(1, 181, step):
+        for k in np.arange(1, 180.5, step):
             angles = np.linspace(k, k + angleRange, numOfDetectors)
             detectorAngles = np.copy(angles)
             detectorAngles = np.flip(detectorAngles)
@@ -193,7 +204,7 @@ class Ui_MainWindow(object):
                     x = emiterX
                     for y in range(emiterY, detectorY + 1, -1):
                         if len(img) > y + n >= 0 and len(img[0]) > x + m >= 0:
-                            sinogram[i][(180 - k) // step - 1] += img[y + n][x + m]
+                            sinogram[i][int((180 - k) / step)] += img[y + n][x + m]
                         error += deltaerr
                         if error >= 0.5:
                             x = x + 1
@@ -205,7 +216,7 @@ class Ui_MainWindow(object):
                     y = emiterY
                     for x in range(emiterX, detectorX + 1):
                         if len(img) > y + n >= 0 and len(img[0]) > x + m >= 0:
-                            sinogram[i][(180 - k) // step - 1] += img[y + n][x + m]
+                            sinogram[i][int((180 - k) / step)] += img[y + n][x + m]
                         error += deltaerr
                         if error >= 0.5:
                             y = y - 1
@@ -218,7 +229,7 @@ class Ui_MainWindow(object):
                     y = detectorY
                     for x in range(detectorX, emiterX + 1, -1):
                         if len(img) > y + n >= 0 and len(img[0]) > x + m >= 0:
-                            sinogram[i][(180 - k) // step - 1] += img[y + n][x + m]
+                            sinogram[i][int((180 - k) / step)] += img[y + n][x + m]
                         error += deltaerr
                         if error >= 0.5:
                             y = y - 1
@@ -230,18 +241,101 @@ class Ui_MainWindow(object):
                     x = detectorX
                     for y in range(detectorY, emiterY + 1, -1):
                         if len(img) > y + n >= 0 and len(img[0]) > x + m >= 0:
-                            sinogram[i][(180 - k) // step - 1] += img[y + n][x + m]
+                            sinogram[i][int((180 - k) / step)] += img[y + n][x + m]
                         error += deltaerr
                         if error >= 0.5:
                             x = x - 1
                             error -= 1
-        sinogram = resize(sinogram, (191, 251))
-        io.imsave("sinogram.png", sinogram)
+        io.imsave("sinogram.png", resize(sinogram, (191, 251)))
         self.sinogramPath = "sinogram.png"
         self.progressSlider.setMinimum(0)
         self.progressSlider.setMaximum(251)
         self.progressSlider.setSingleStep(1)
         self.progressSlider.valueChanged.connect(self.showSinogram)
+
+
+
+        reconstructedImage = np.zeros((len(img), len(img[0])))
+        for k in np.arange(1, 181, step):
+            angles = np.linspace(k, k + angleRange, numOfDetectors)
+            detectorAngles = np.copy(angles)
+            detectorAngles = np.flip(detectorAngles)
+            detectorAngles += 180
+            if numOfDetectors % 2 == 0:
+                a = sin(radians((angles[numOfDetectors // 2 - 1] + angles[numOfDetectors // 2]) / 2)) / cos(
+                    radians((angles[numOfDetectors // 2 - 1] + angles[numOfDetectors // 2]) / 2))
+            else:
+                a = sin(radians(angles[numOfDetectors // 2])) / cos(radians(angles[numOfDetectors // 2]))
+            print(k, a)
+            for i, angle in enumerate(angles):
+                emiterX = int(round(radius * cos(radians(angle))))
+                emiterY = int(round(radius * sin(radians(angle))))
+                detectorX = int(round(radius * cos(radians(detectorAngles[i]))))
+                detectorY = int(round(radius * sin(radians(detectorAngles[i]))))
+                b = emiterY - a * emiterX
+                deltax = detectorX - emiterX
+                deltay = detectorY - emiterY
+                error = 0
+                if a <= -1:
+                    if deltay == 0:
+                        deltay = 0.000001
+                    deltaerr = abs(deltax / deltay)
+                    x = emiterX
+                    for y in range(emiterY, detectorY + 1, -1):
+                        if len(img) > y + n >= 0 and len(img[0]) > x + m >= 0:
+                            reconstructedImage[y + n][x + m] += sinogram[i][int((180 - k) / step - 1)]
+                        error += deltaerr
+                        if error >= 0.5:
+                            x = x + 1
+                            error -= 1
+                elif -1 < a < 0:
+                    if deltax == 0:
+                        deltax = 0.000001
+                    deltaerr = abs(deltay / deltax)
+                    y = emiterY
+                    for x in range(emiterX, detectorX + 1):
+                        if len(img) > y + n >= 0 and len(img[0]) > x + m >= 0:
+                            reconstructedImage[y + n][x + m] += sinogram[i][int((180 - k) / step - 1)]
+                        error += deltaerr
+                        if error >= 0.5:
+                            y = y - 1
+                            error -= 1
+                elif 0 < a < 1:
+                    if deltax == 0:
+                        deltax = 0.000001
+                    deltaerr = abs(deltay / deltax)
+                    error = 0
+                    y = detectorY
+                    for x in range(detectorX, emiterX + 1, -1):
+                        if len(img) > y + n >= 0 and len(img[0]) > x + m >= 0:
+                            reconstructedImage[y + n][x + m] += sinogram[i][int((180 - k) / step - 1)]
+                        error += deltaerr
+                        if error >= 0.5:
+                            y = y - 1
+                            error -= 1
+                elif a >= 1:
+                    if deltay == 0:
+                        deltay = 0.000001
+                    deltaerr = abs(deltax / deltay)
+                    x = detectorX
+                    for y in range(detectorY, emiterY + 1, -1):
+                        if len(img) > y + n >= 0 and len(img[0]) > x + m >= 0:
+                            reconstructedImage[y + n][x + m] += sinogram[i][int((180 - k) / step - 1)]
+                        error += deltaerr
+                        if error >= 0.5:
+                            x = x - 1
+                            error -= 1
+
+        suma = np.sum(sinogram) / len(sinogram[0])
+        for i in range(len(reconstructedImage)):
+            for j in range(len(reconstructedImage[i])):
+                reconstructedImage[i][j] -= suma
+                if reconstructedImage[i][j] < 0:
+                    reconstructedImage[i][j] = 0
+
+        self.reconstructedPath = "reconstructed.png"
+        io.imsave(self.reconstructedPath, reconstructedImage)
+        self.showReconstructed()
 
 
 
