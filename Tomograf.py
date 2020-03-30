@@ -6,7 +6,8 @@
 #
 # WARNING! All changes made in this file will be lost!
 
-
+import datetime
+import tempfile
 from PyQt5 import QtCore, QtGui, QtWidgets
 from skimage import io, color
 from skimage.transform import rescale, resize
@@ -14,6 +15,9 @@ from skimage.filters import gaussian
 from math import pi, radians, cos, sin, ceil
 import numpy as np
 import sys
+import pydicom
+import matplotlib.pyplot as plt
+from pydicom.dataset import Dataset, FileDataset
 
 
 class Ui_MainWindow(object):
@@ -93,12 +97,12 @@ class Ui_MainWindow(object):
         self.commentsTextField = QtWidgets.QTextEdit(self.centralwidget)
         self.commentsTextField.setGeometry(QtCore.QRect(620, 420, 251, 71))
         self.commentsTextField.setObjectName("commentsTextField")
-        self.patientInfoTextfield = QtWidgets.QTextEdit(self.centralwidget)
-        self.patientInfoTextfield.setGeometry(QtCore.QRect(620, 290, 251, 71))
-        self.patientInfoTextfield.setObjectName("patientInfoTextfield")
-        self.patientInfoLabel = QtWidgets.QLabel(self.centralwidget)
-        self.patientInfoLabel.setGeometry(QtCore.QRect(476, 320, 111, 20))
-        self.patientInfoLabel.setObjectName("patientInfoLabel")
+        self.patientNameTextfield = QtWidgets.QTextEdit(self.centralwidget)
+        self.patientNameTextfield.setGeometry(QtCore.QRect(620, 290, 251, 71))
+        self.patientNameTextfield.setObjectName("patientNameTextfield")
+        self.patientNameLabel = QtWidgets.QLabel(self.centralwidget)
+        self.patientNameLabel.setGeometry(QtCore.QRect(476, 320, 111, 20))
+        self.patientNameLabel.setObjectName("patientNameLabel")
         self.examinationDateLabel = QtWidgets.QLabel(self.centralwidget)
         self.examinationDateLabel.setGeometry(QtCore.QRect(480, 380, 71, 16))
         self.examinationDateLabel.setObjectName("examinationDateLabel")
@@ -133,18 +137,42 @@ class Ui_MainWindow(object):
         self.angularRangeLabel.setText(_translate("MainWindow", "Rozpiętość kątowa"))
         self.progressLabel.setText(_translate("MainWindow", "Postęp"))
         self.filterCheckbox.setText(_translate("MainWindow", "Filtrowanie"))
-        self.patientInfoLabel.setText(_translate("MainWindow", "Informacje o pacjencie"))
+        self.patientNameLabel.setText(_translate("MainWindow", "Nazwisko"))
         self.examinationDateLabel.setText(_translate("MainWindow", "Data badania"))
         self.commentsLabel.setText(_translate("MainWindow", "Komentarze"))
 
 
     def setImage(self):
-        self.imagePath, _ = QtWidgets.QFileDialog.getOpenFileName(None, "Wybierz obraz", "", "Image Files (*.png *.jpg *.jpeg *.bmp)")
+        self.imagePath, _ = QtWidgets.QFileDialog.getOpenFileName(None, "Wybierz obraz", "",
+                                                                  "Image Files (*.png *.jpg *.jpeg *.bmp);; Dicom Files (*.dcm)")
         if self.imagePath:
-            pixmap = QtGui.QPixmap(self.imagePath)
-            pixmap = pixmap.scaled(self.inputImage.width(), self.inputImage.height(), QtCore.Qt.KeepAspectRatio)
-            self.inputImage.setPixmap(pixmap)
-            self.inputImage.setAlignment(QtCore.Qt.AlignCenter)
+            if not self.imagePath.endswith(".dcm"):
+                pixmap = QtGui.QPixmap(self.imagePath)
+                pixmap = pixmap.scaled(self.inputImage.width(), self.inputImage.height(), QtCore.Qt.KeepAspectRatio)
+                self.inputImage.setPixmap(pixmap)
+                self.inputImage.setAlignment(QtCore.Qt.AlignCenter)
+            else:
+                ds = pydicom.dcmread(self.imagePath)
+                print(ds.file_meta.MediaStorageSOPClassUID, ds.file_meta.MediaStorageSOPInstanceUID,
+                      ds.file_meta.ImplementationClassUID)
+                patientName = ds.PatientName
+                patientID = ds.PatientID
+                patientSex = ds.PatientSex
+                # studyDate = ds.data_element("StudyDate")
+                print(patientName, patientID, patientSex)
+                if patientName:
+                    self.patientNameTextfield.setText(str(patientName))
+                # TODO READ THE REST OF DATA PRESENT IN UPLOADED DICOM
+                # UWAGA!!! Wykrzacza się jeśli dane danego typu nie były podane. Testować na razie dla własnego wygenerowanego pliku dicom
+
+                image = ds.pixel_array
+                image = np.multiply(image, 255.0 / np.max(image))
+                image = image.astype('uint8')
+                io.imsave("dicom.png", image)
+                pixmap = QtGui.QPixmap("dicom.png")
+                pixmap = pixmap.scaled(self.inputImage.width(), self.inputImage.height(), QtCore.Qt.KeepAspectRatio)
+                self.inputImage.setPixmap(pixmap)
+                self.inputImage.setAlignment(QtCore.Qt.AlignCenter)
 
     def showSinogram(self, width):
         img = QtGui.QImage(self.sinogramPath)
@@ -332,6 +360,61 @@ class Ui_MainWindow(object):
                 reconstructedImage[i][j] -= suma
                 if reconstructedImage[i][j] < 0:
                     reconstructedImage[i][j] = 0
+
+        '''
+        UWAGA 
+        dopisałam tutaj konwersję obrazu (zrekonstruowanego), żeby nie było erroru o stratnym zapisie
+        Według mnie nic ona nie zmienia ale wolę żeby była
+        Jakbys jednak zauważył jakieś problemy pozbądz sie jej bez wahania
+        '''
+        reconstructedImage = np.multiply(reconstructedImage, 255.0 / np.max(reconstructedImage))
+        reconstructedImage = reconstructedImage.astype('uint8')
+
+        file_meta = Dataset()
+        file_meta.MediaStorageSOPClassUID = "1.2.840.10018.5.1.4.1.1.7"
+        file_meta.MediaStorageSOPInstanceUID = "1.2.276.0.7240010.3.1.4.3846053626.3968.1286299971.696"
+        file_meta.ImplementationClassUID = "1.2.276.0.7240010.3.0.3.5.5"
+
+        print("Setting dataset values...")
+        # Create the FileDataset instance (initially no data elements, but file_meta
+        # supplied)
+        ds = FileDataset("plik.dcm", {},
+                         file_meta=file_meta, preamble=b"\0" * 128)
+
+        # TODO Pobrać z GUI resztę danych o pacjencie, które chcemy zapisywać/odczytywać
+        ds.PatientName = self.patientNameTextfield.toPlainText()
+        ds.PatientID = "123456"
+        ds.StudyDate = self.dateEdit.dateTime().toString()
+        ds.StudyID = "987987987"
+        ds.PatientSex = "M"
+
+        # DANE O OBRAZIE, NA RAZIE NIE ZMIENIAC!!!
+        ds.PixelData = reconstructedImage.tobytes()
+        ds.BitsAllocated = 8
+        ds.Rows = len(reconstructedImage[0])
+        ds.Columns = len(reconstructedImage)
+        ds.PixelRepresentation = 0
+        ds.SamplesPerPixel = 1
+        ds.BitsStored = 8
+        ds.HighBit = 7
+        ds.PhotometricInterpretation = "MONOCHROME2"
+
+        # ds.StudyInstanceUID = "1.2.276.0.7230010.3.1.2.3846053626.3968.1286299971.694"
+        # Set the transfer syntax
+        ds.is_little_endian = True
+        ds.is_implicit_VR = True
+        # Set creation date/time
+        dt = datetime.datetime.now()
+        ds.ContentDate = dt.strftime('%Y%m%d')
+        timeStr = dt.strftime('%H%M%S.%f')  # long format with micro seconds
+        ds.ContentTime = timeStr
+        ds.save_as("plik.dcm")
+        ds.file_meta.TransferSyntaxUID = pydicom.uid.ExplicitVRBigEndian
+        ds.is_little_endian = False
+        ds.is_implicit_VR = False
+
+        print("Writing test file as Big Endian Explicit VR", "plik.dcm")
+        ds.save_as("plik.dcm")
 
         self.reconstructedPath = "reconstructed.png"
         io.imsave(self.reconstructedPath, reconstructedImage)
