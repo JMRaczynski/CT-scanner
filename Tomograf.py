@@ -215,7 +215,7 @@ class Ui_MainWindow(object):
                 a = sin(radians((angles[numOfDetectors // 2 - 1] + angles[numOfDetectors // 2]) / 2)) / cos(radians((angles[numOfDetectors // 2 - 1] + angles[numOfDetectors // 2]) / 2))
             else:
                 a = sin(radians(angles[numOfDetectors // 2])) / cos(radians(angles[numOfDetectors // 2]))
-            print(k, a)
+            #print(k, a)
             for i, angle in enumerate(angles):
                 emiterX = int(round(radius * cos(radians(angle))))
                 emiterY = int(round(radius * sin(radians(angle))))
@@ -294,7 +294,7 @@ class Ui_MainWindow(object):
                     radians((angles[numOfDetectors // 2 - 1] + angles[numOfDetectors // 2]) / 2))
             else:
                 a = sin(radians(angles[numOfDetectors // 2])) / cos(radians(angles[numOfDetectors // 2]))
-            print(k, a)
+            #print(k, a)
             for i, angle in enumerate(angles):
                 emiterX = int(round(radius * cos(radians(angle))))
                 emiterY = int(round(radius * sin(radians(angle))))
@@ -391,12 +391,12 @@ class Ui_MainWindow(object):
         # DANE O OBRAZIE, NA RAZIE NIE ZMIENIAC!!!
         ds.PixelData = reconstructedImage.tobytes()
         ds.BitsAllocated = 8
-        ds.Rows = len(reconstructedImage[0])
-        ds.Columns = len(reconstructedImage)
+        ds.Rows = len(reconstructedImage)
+        ds.Columns = len(reconstructedImage[0])
         ds.PixelRepresentation = 0
         ds.SamplesPerPixel = 1
-        ds.BitsStored = 8
-        ds.HighBit = 7
+        ds.BitsStored = 16 #8
+        ds.HighBit = 15 #7
         ds.PhotometricInterpretation = "MONOCHROME2"
 
         # ds.StudyInstanceUID = "1.2.276.0.7230010.3.1.2.3846053626.3968.1286299971.694"
