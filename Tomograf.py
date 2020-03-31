@@ -183,6 +183,7 @@ class Ui_MainWindow(object):
         self.sinogram.setAlignment(QtCore.Qt.AlignLeft)
         self.showReconstructed(width)
 
+
     def showReconstructed(self, iteration):
         img = QtGui.QImage("rec" + str(iteration) + ".png")
         pixmap = QtGui.QPixmap(img)
@@ -192,28 +193,34 @@ class Ui_MainWindow(object):
 
 
     def startProcessing(self):
-        self.generateSinogram(float(self.alphaStepTextfield.text()), int(self.numOfDetectorsTextfield.text()),
+        self.processImage(float(self.alphaStepTextfield.text()), int(self.numOfDetectorsTextfield.text()),
                               int(self.angularRangeTextfield.text()))
 
-    def generateSinogram(self, step, numOfDetectors, angleRange):
+
+    def normalizeImage(self, image):
+        maxx = np.amax(image)
+        minn = np.amin(image)
+        for i in range(len(image)):
+            for j in range(len(image[0])):
+                image[i][j] = (image[i][j] - minn) / (maxx - minn)
+        return image
+
+
+    def processImage(self, step, numOfDetectors, angleRange):
         img = io.imread(self.imagePath)
         img = color.rgb2gray(img)
-        if max(len(img), len(img[0])) > 1000:
-            factor = 0.125
-        else:
-            factor = 0.25
-        img = rescale(img, factor, anti_aliasing=False)
+        img = resize(img, (180, 180))
         m = len(img[0]) // 2
         n = len(img) // 2
         sinogram = np.zeros((numOfDetectors, int(180 / step)))
-        #radius = ((len(img) ** 2 + len(img[0]) ** 2) ** 0.5) / 2
-        radius = len(img) / 2
-        for k in np.arange(1, 180.5, step):
+        #radius = ((len(img) ** 2 + len(img[0]) ** 2) ** 0.5) / 2   okrąg opisany na obrazku
+        radius = len(img) / 2                                   #   okrąg wpisany w obrazek
+        for k in np.arange(1, 180.1, step):             # generacja sinogramu
             angles = np.linspace(k, k + angleRange, numOfDetectors)
             detectorAngles = np.copy(angles)
             detectorAngles = np.flip(detectorAngles)
             detectorAngles += 180
-            if numOfDetectors % 2 == 0:
+            if numOfDetectors % 2 == 0: # emitery i detektory strzelają promieniami w takim kierunku, aby środkowy promień przechodził przez środek okręgu
                 a = sin(radians((angles[numOfDetectors // 2 - 1] + angles[numOfDetectors // 2]) / 2)) / cos(radians((angles[numOfDetectors // 2 - 1] + angles[numOfDetectors // 2]) / 2))
             else:
                 a = sin(radians(angles[numOfDetectors // 2])) / cos(radians(angles[numOfDetectors // 2]))
@@ -277,30 +284,26 @@ class Ui_MainWindow(object):
                             x = x - 1
                             error -= 1
 
-        mask = [1]
-        for i in range(1, 21):
-            if i % 2 == 0:
-                toAdd = 0
-            else:
-                toAdd = -4 / pi ** 2 / i ** 2
-            mask.insert(0, toAdd)
-            mask.append(toAdd)
-        print(mask)
+        if self.filterCheckbox.isChecked():  # filtracja sinogramu
+            mask = [1]
+            for i in range(1, 21):
+                if i % 2 == 0:
+                    toAdd = 0
+                else:
+                    toAdd = -4 / pi ** 2 / i ** 2
+                mask.insert(0, toAdd)
+                mask.append(toAdd)
+            print(mask)
 
-        maxx = np.amax(sinogram)
-        minn = np.amin(sinogram)
+            sinogram = self.normalizeImage(sinogram)
 
-        for i in range(len(sinogram)):
-            for j in range(len(sinogram[0])):
-                sinogram[i][j] = (sinogram[i][j] - minn) / (maxx - minn)
-
-        for i in range(len(sinogram[0])):
-            for j in range(len(sinogram)):
-                acc = 0
-                for k in range(-20, 21):
-                    if 0 <= j + k < len(sinogram):
-                        acc += sinogram[j + k][i] * mask[k + 20]
-                sinogram[j][i] = acc
+            for i in range(len(sinogram[0])):
+                for j in range(len(sinogram)):
+                    acc = 0
+                    for k in range(-20, 21):
+                        if 0 <= j + k < len(sinogram):
+                            acc += sinogram[j + k][i] * mask[k + 20]
+                    sinogram[j][i] = acc
 
         io.imsave("sinogram.png", resize(sinogram, (191, 251)))
         self.sinogramPath = "sinogram.png"
@@ -309,7 +312,7 @@ class Ui_MainWindow(object):
         self.progressSlider.setSingleStep(1)
         self.progressSlider.valueChanged.connect(self.showSinogram)
 
-        reconstructedImage = np.zeros((len(img), len(img[0])))
+        reconstructedImage = np.zeros((len(img), len(img[0])))              # rekonstrukcja obrazu
         for k in np.arange(1, 181, step):
             angles = np.linspace(k, k + angleRange, numOfDetectors)
             detectorAngles = np.copy(angles)
@@ -381,6 +384,8 @@ class Ui_MainWindow(object):
                             error -= 1
             if k % 18 == 0:
                 io.imsave("rec" + str(int(k // 18)) + ".png", reconstructedImage)
+
+        # KONIEC REKONSTRUKCJI
 
         """suma = np.sum(sinogram) / len(sinogram[0])
         for i in range(len(reconstructedImage)):
