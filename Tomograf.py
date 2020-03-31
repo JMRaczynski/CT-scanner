@@ -94,21 +94,33 @@ class Ui_MainWindow(object):
         self.filterCheckbox = QtWidgets.QCheckBox(self.centralwidget)
         self.filterCheckbox.setGeometry(QtCore.QRect(170, 430, 70, 17))
         self.filterCheckbox.setObjectName("filterCheckbox")
-        self.commentsTextField = QtWidgets.QTextEdit(self.centralwidget)
-        self.commentsTextField.setGeometry(QtCore.QRect(620, 420, 251, 71))
-        self.commentsTextField.setObjectName("commentsTextField")
+        self.idTextField = QtWidgets.QTextEdit(self.centralwidget)
+        self.idTextField.setGeometry(QtCore.QRect(620, 410, 251, 25))
+        self.idTextField.setObjectName("idTextField")
         self.patientNameTextfield = QtWidgets.QTextEdit(self.centralwidget)
-        self.patientNameTextfield.setGeometry(QtCore.QRect(620, 290, 251, 71))
+        self.patientNameTextfield.setGeometry(QtCore.QRect(620, 290, 251, 25))
         self.patientNameTextfield.setObjectName("patientNameTextfield")
+        self.sexLabel = QtWidgets.QLabel(self.centralwidget)
+        self.sexLabel.setGeometry(QtCore.QRect(480, 350, 111, 20))
+        self.sexLabel.setObjectName("sexLabel")
+        self.sexCheckbox = QtWidgets.QCheckBox(self.centralwidget)
+        self.sexCheckbox.setGeometry(QtCore.QRect(620, 350, 70, 17))
+        self.sexCheckbox.setObjectName("sexCheckbox")
         self.patientNameLabel = QtWidgets.QLabel(self.centralwidget)
-        self.patientNameLabel.setGeometry(QtCore.QRect(476, 320, 111, 20))
+        self.patientNameLabel.setGeometry(QtCore.QRect(480, 290, 111, 20))
         self.patientNameLabel.setObjectName("patientNameLabel")
+        self.patientSurnameTextfield = QtWidgets.QTextEdit(self.centralwidget)
+        self.patientSurnameTextfield.setGeometry(QtCore.QRect(620, 320, 251, 25))
+        self.patientSurnameTextfield.setObjectName("patientSurnameTextfield")
+        self.patientSurnameLabel = QtWidgets.QLabel(self.centralwidget)
+        self.patientSurnameLabel.setGeometry(QtCore.QRect(480, 320, 111, 20))
+        self.patientSurnameLabel.setObjectName("patientSurnameLabel")
         self.examinationDateLabel = QtWidgets.QLabel(self.centralwidget)
-        self.examinationDateLabel.setGeometry(QtCore.QRect(480, 380, 71, 16))
+        self.examinationDateLabel.setGeometry(QtCore.QRect(480, 380, 71, 20))
         self.examinationDateLabel.setObjectName("examinationDateLabel")
-        self.commentsLabel = QtWidgets.QLabel(self.centralwidget)
-        self.commentsLabel.setGeometry(QtCore.QRect(480, 450, 61, 16))
-        self.commentsLabel.setObjectName("commentsLabel")
+        self.idLabel = QtWidgets.QLabel(self.centralwidget)
+        self.idLabel.setGeometry(QtCore.QRect(480, 410, 61, 16))
+        self.idLabel.setObjectName("idLabel")
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(MainWindow)
         self.menubar.setGeometry(QtCore.QRect(0, 0, 916, 21))
@@ -137,9 +149,11 @@ class Ui_MainWindow(object):
         self.angularRangeLabel.setText(_translate("MainWindow", "Rozpiętość kątowa"))
         self.progressLabel.setText(_translate("MainWindow", "Postęp"))
         self.filterCheckbox.setText(_translate("MainWindow", "Filtrowanie"))
-        self.patientNameLabel.setText(_translate("MainWindow", "Nazwisko"))
+        self.patientNameLabel.setText(_translate("MainWindow", "Imię pacjenta"))
+        self.patientSurnameLabel.setText(_translate("MainWindow", "Nazwisko pacjenta"))
+        self.sexLabel.setText(_translate("MainWindow", "Mężczyzna"))
         self.examinationDateLabel.setText(_translate("MainWindow", "Data badania"))
-        self.commentsLabel.setText(_translate("MainWindow", "Komentarze"))
+        self.idLabel.setText(_translate("MainWindow", "ID badania"))
 
 
     def setImage(self):
@@ -382,7 +396,7 @@ class Ui_MainWindow(object):
                         if error >= 0.5:
                             x = x - 1
                             error -= 1
-            if k % 18 == 0:
+            if k // 18 != (k - step) // 18:
                 io.imsave("rec" + str(int(k // 18)) + ".png", reconstructedImage)
 
         # KONIEC REKONSTRUKCJI
