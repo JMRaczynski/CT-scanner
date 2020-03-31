@@ -354,7 +354,7 @@ class Ui_MainWindow(object):
                     x = emiterX
                     for y in range(emiterY, detectorY + 1, -1):
                         if len(img) > y + n >= 0 and len(img[0]) > x + m >= 0:
-                            reconstructedImage[y + n][x + m] += sinogram[i][int((180 - k) / step - 1)]
+                            reconstructedImage[y + n][x + m] += sinogram[i][int((180 - k) / step)]
                         error += deltaerr
                         if error >= 0.5:
                             x = x + 1
@@ -366,7 +366,7 @@ class Ui_MainWindow(object):
                     y = emiterY
                     for x in range(emiterX, detectorX + 1):
                         if len(img) > y + n >= 0 and len(img[0]) > x + m >= 0:
-                            reconstructedImage[y + n][x + m] += sinogram[i][int((180 - k) / step - 1)]
+                            reconstructedImage[y + n][x + m] += sinogram[i][int((180 - k) / step)]
                         error += deltaerr
                         if error >= 0.5:
                             y = y - 1
@@ -379,7 +379,7 @@ class Ui_MainWindow(object):
                     y = detectorY
                     for x in range(detectorX, emiterX + 1, -1):
                         if len(img) > y + n >= 0 and len(img[0]) > x + m >= 0:
-                            reconstructedImage[y + n][x + m] += sinogram[i][int((180 - k) / step - 1)]
+                            reconstructedImage[y + n][x + m] += sinogram[i][int((180 - k) / step)]
                         error += deltaerr
                         if error >= 0.5:
                             y = y - 1
@@ -391,7 +391,7 @@ class Ui_MainWindow(object):
                     x = detectorX
                     for y in range(detectorY, emiterY + 1, -1):
                         if len(img) > y + n >= 0 and len(img[0]) > x + m >= 0:
-                            reconstructedImage[y + n][x + m] += sinogram[i][int((180 - k) / step - 1)]
+                            reconstructedImage[y + n][x + m] += sinogram[i][int((180 - k) / step)]
                         error += deltaerr
                         if error >= 0.5:
                             x = x - 1
