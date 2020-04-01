@@ -6,8 +6,7 @@
 #
 # WARNING! All changes made in this file will be lost!
 
-import datetime
-import tempfile
+
 from PyQt5 import QtCore, QtGui, QtWidgets
 from skimage import io, color
 from skimage.transform import rescale, resize
@@ -18,6 +17,7 @@ import sys
 import pydicom
 import matplotlib.pyplot as plt
 from pydicom.dataset import Dataset, FileDataset
+import datetime
 
 
 class Ui_MainWindow(object):
@@ -91,6 +91,7 @@ class Ui_MainWindow(object):
         self.dateEdit = QtWidgets.QDateEdit(self.centralwidget)
         self.dateEdit.setGeometry(QtCore.QRect(620, 380, 110, 22))
         self.dateEdit.setObjectName("dateEdit")
+        self.dateEdit.setDateTime(QtCore.QDateTime.currentDateTime())
         self.filterCheckbox = QtWidgets.QCheckBox(self.centralwidget)
         self.filterCheckbox.setGeometry(QtCore.QRect(170, 430, 70, 17))
         self.filterCheckbox.setObjectName("filterCheckbox")
@@ -153,7 +154,7 @@ class Ui_MainWindow(object):
         self.patientSurnameLabel.setText(_translate("MainWindow", "Nazwisko pacjenta"))
         self.sexLabel.setText(_translate("MainWindow", "Mężczyzna"))
         self.examinationDateLabel.setText(_translate("MainWindow", "Data badania"))
-        self.idLabel.setText(_translate("MainWindow", "ID badania"))
+        self.idLabel.setText(_translate("MainWindow", "ID pacjenta"))
 
 
     def setImage(self):
@@ -167,17 +168,20 @@ class Ui_MainWindow(object):
                 self.inputImage.setAlignment(QtCore.Qt.AlignCenter)
             else:
                 ds = pydicom.dcmread(self.imagePath)
-                print(ds.file_meta.MediaStorageSOPClassUID, ds.file_meta.MediaStorageSOPInstanceUID,
-                      ds.file_meta.ImplementationClassUID)
                 patientName = ds.PatientName
                 patientID = ds.PatientID
                 patientSex = ds.PatientSex
-                # studyDate = ds.data_element("StudyDate")
-                print(patientName, patientID, patientSex)
-                if patientName:
-                    self.patientNameTextfield.setText(str(patientName))
-                # TODO READ THE REST OF DATA PRESENT IN UPLOADED DICOM
-                # UWAGA!!! Wykrzacza się jeśli dane danego typu nie były podane. Testować na razie dla własnego wygenerowanego pliku dicom
+                studyDate = ds.StudyDate
+                self.patientNameTextfield.setText(str(patientName)[0:str(patientName).index(" ")])
+                self.patientSurnameTextfield.setText(str(patientName)[str(patientName).index(" ")+1:])
+                if patientSex:
+                    if patientSex == "M":
+                        self.sexCheckbox.setChecked(True)
+                self.idTextField.setText(patientID)
+                if studyDate:
+                    self.dateEdit.setDate(QtCore.QDate(int(studyDate[0:4]), int(studyDate[4:6]), int(studyDate[6:8])))
+                else:
+                    self.dateEdit.setDateTime(QtCore.QDateTime.currentDateTime())
 
                 image = ds.pixel_array
                 image = np.multiply(image, 255.0 / np.max(image))
@@ -423,46 +427,38 @@ class Ui_MainWindow(object):
         file_meta.MediaStorageSOPInstanceUID = "1.2.276.0.7240010.3.1.4.3846053626.3968.1286299971.696"
         file_meta.ImplementationClassUID = "1.2.276.0.7240010.3.0.3.5.5"
 
-        print("Setting dataset values...")
-        # Create the FileDataset instance (initially no data elements, but file_meta
-        # supplied)
-        ds = FileDataset("plik.dcm", {},
-                         file_meta=file_meta, preamble=b"\0" * 128)
+        filename = self.dateEdit.date().toString('yyyyMMdd') + self.idTextField.toPlainText()
+        ds = FileDataset(filename + ".dcm", {}, file_meta=file_meta, preamble=b"\0" * 128)
+        ds.PatientName = self.patientNameTextfield.toPlainText() + " " + self.patientSurnameTextfield.toPlainText()
+        ds.PatientID = self.idTextField.toPlainText()
+        ds.StudyDate = self.dateEdit.date().toString('yyyyMMdd')
+        ds.StudyID = str(ds.StudyDate) + ds.PatientID
+        if self.sexCheckbox.isChecked():
+            ds.PatientSex = "M"
+        else:
+            ds.PatientSex = "F"
 
-        # TODO Pobrać z GUI resztę danych o pacjencie, które chcemy zapisywać/odczytywać
-        ds.PatientName = self.patientNameTextfield.toPlainText()
-        ds.PatientID = "123456"
-        ds.StudyDate = self.dateEdit.dateTime().toString()
-        ds.StudyID = "987987987"
-        ds.PatientSex = "M"
-
-        # DANE O OBRAZIE, NA RAZIE NIE ZMIENIAC!!!
         ds.PixelData = reconstructedImage.tobytes()
         ds.BitsAllocated = 8
         ds.Rows = len(reconstructedImage)
         ds.Columns = len(reconstructedImage[0])
         ds.PixelRepresentation = 0
         ds.SamplesPerPixel = 1
-        ds.BitsStored = 16 #8
-        ds.HighBit = 15 #7
+        ds.BitsStored = 16
+        ds.HighBit = 15
         ds.PhotometricInterpretation = "MONOCHROME2"
 
-        # ds.StudyInstanceUID = "1.2.276.0.7230010.3.1.2.3846053626.3968.1286299971.694"
-        # Set the transfer syntax
         ds.is_little_endian = True
         ds.is_implicit_VR = True
-        # Set creation date/time
         dt = datetime.datetime.now()
         ds.ContentDate = dt.strftime('%Y%m%d')
         timeStr = dt.strftime('%H%M%S.%f')  # long format with micro seconds
         ds.ContentTime = timeStr
-        ds.save_as("plik.dcm")
+        ds.save_as(filename + ".dcm")
         ds.file_meta.TransferSyntaxUID = pydicom.uid.ExplicitVRBigEndian
         ds.is_little_endian = False
         ds.is_implicit_VR = False
-
-        print("Writing test file as Big Endian Explicit VR", "plik.dcm")
-        ds.save_as("plik.dcm")
+        ds.save_as(filename + ".dcm")
 
         self.reconstructedPath = "reconstructed.png"
         io.imsave(self.reconstructedPath, reconstructedImage)
