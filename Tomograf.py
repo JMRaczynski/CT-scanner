@@ -10,24 +10,22 @@
 from PyQt5 import QtCore, QtGui, QtWidgets
 from skimage import io, color
 from skimage.transform import rescale, resize
-from skimage.filters import gaussian
 from math import pi, radians, cos, sin, ceil
 import numpy as np
 import sys
+import random
 import pydicom
-import matplotlib.pyplot as plt
-from pydicom.dataset import Dataset, FileDataset
 import datetime
 
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
-        MainWindow.resize(916, 585)
+        MainWindow.resize(916, 620)
         self.centralwidget = QtWidgets.QWidget(MainWindow)
         self.centralwidget.setObjectName("centralwidget")
         self.startButton = QtWidgets.QPushButton(self.centralwidget)
-        self.startButton.setGeometry(QtCore.QRect(400, 510, 75, 23))
+        self.startButton.setGeometry(QtCore.QRect(400, 560, 75, 23))
         self.startButton.setObjectName("startButton")
         self.startButton.clicked.connect(self.startProcessing)
         self.chooseImageButton = QtWidgets.QPushButton(self.centralwidget)
@@ -95,8 +93,11 @@ class Ui_MainWindow(object):
         self.filterCheckbox = QtWidgets.QCheckBox(self.centralwidget)
         self.filterCheckbox.setGeometry(QtCore.QRect(170, 430, 70, 17))
         self.filterCheckbox.setObjectName("filterCheckbox")
+        self.commentsTextField = QtWidgets.QTextEdit(self.centralwidget)
+        self.commentsTextField.setGeometry(QtCore.QRect(620, 410, 251, 85))
+        self.commentsTextField.setObjectName("idTextField")
         self.idTextField = QtWidgets.QTextEdit(self.centralwidget)
-        self.idTextField.setGeometry(QtCore.QRect(620, 410, 251, 25))
+        self.idTextField.setGeometry(QtCore.QRect(620, 500, 251, 25))
         self.idTextField.setObjectName("idTextField")
         self.patientNameTextfield = QtWidgets.QTextEdit(self.centralwidget)
         self.patientNameTextfield.setGeometry(QtCore.QRect(620, 290, 251, 25))
@@ -119,8 +120,11 @@ class Ui_MainWindow(object):
         self.examinationDateLabel = QtWidgets.QLabel(self.centralwidget)
         self.examinationDateLabel.setGeometry(QtCore.QRect(480, 380, 71, 20))
         self.examinationDateLabel.setObjectName("examinationDateLabel")
+        self.commentsLabel = QtWidgets.QLabel(self.centralwidget)
+        self.commentsLabel.setGeometry(QtCore.QRect(480, 410, 61, 16))
+        self.commentsLabel.setObjectName("commentsLabel")
         self.idLabel = QtWidgets.QLabel(self.centralwidget)
-        self.idLabel.setGeometry(QtCore.QRect(480, 410, 61, 16))
+        self.idLabel.setGeometry(QtCore.QRect(480, 500, 61, 16))
         self.idLabel.setObjectName("idLabel")
         MainWindow.setCentralWidget(self.centralwidget)
         self.menubar = QtWidgets.QMenuBar(MainWindow)
@@ -154,7 +158,8 @@ class Ui_MainWindow(object):
         self.patientSurnameLabel.setText(_translate("MainWindow", "Nazwisko pacjenta"))
         self.sexLabel.setText(_translate("MainWindow", "Mężczyzna"))
         self.examinationDateLabel.setText(_translate("MainWindow", "Data badania"))
-        self.idLabel.setText(_translate("MainWindow", "ID pacjenta"))
+        self.commentsLabel.setText(_translate("MainWindow", "Komentarz"))
+        self.idLabel.setText(_translate("MainWindow", "ID Pacjenta"))
 
 
     def setImage(self):
@@ -167,21 +172,46 @@ class Ui_MainWindow(object):
                 self.inputImage.setPixmap(pixmap)
                 self.inputImage.setAlignment(QtCore.Qt.AlignCenter)
             else:
+                patientName = None
+                patientSex = None
+                studyDate = None
+                comment = None
+                patientID = None
                 ds = pydicom.dcmread(self.imagePath)
-                patientName = ds.PatientName
-                patientID = ds.PatientID
-                patientSex = ds.PatientSex
-                studyDate = ds.StudyDate
-                self.patientNameTextfield.setText(str(patientName)[0:str(patientName).index(" ")])
-                self.patientSurnameTextfield.setText(str(patientName)[str(patientName).index(" ")+1:])
+                try:
+                    patientID = str(ds.PatientID)
+                except AttributeError:
+                    pass
+                try:
+                    patientName = str(ds.PatientName)
+                except AttributeError:
+                    pass
+                try:
+                    studyDate = str(ds.StudyDate)
+                except AttributeError:
+                    pass
+                try:
+                    patientSex = str(ds.PatientSex)
+                except AttributeError:
+                    pass
+                try:
+                    comment = str(ds.ImageComments)
+                except AttributeError:
+                    pass
+                if patientID:
+                    self.idTextField.setText(patientID)
+                if patientName:
+                    self.patientNameTextfield.setText(str(patientName)[0:str(patientName).index(" ")])
+                    self.patientSurnameTextfield.setText(str(patientName)[str(patientName).index(" ")+1:])
                 if patientSex:
-                    if patientSex == "M":
+                    if patientSex == "M" or patientSex == None:
                         self.sexCheckbox.setChecked(True)
-                self.idTextField.setText(patientID)
                 if studyDate:
                     self.dateEdit.setDate(QtCore.QDate(int(studyDate[0:4]), int(studyDate[4:6]), int(studyDate[6:8])))
                 else:
                     self.dateEdit.setDateTime(QtCore.QDateTime.currentDateTime())
+                if comment:
+                    self.commentsTextField.setText(comment)
 
                 image = ds.pixel_array
                 image = np.multiply(image, 255.0 / np.max(image))
@@ -413,33 +443,43 @@ class Ui_MainWindow(object):
                     reconstructedImage[i][j] = 0
         io.imsave("rec10.png", reconstructedImage)"""
 
-        '''
-        UWAGA 
-        dopisałam tutaj konwersję obrazu (zrekonstruowanego), żeby nie było erroru o stratnym zapisie
-        Według mnie nic ona nie zmienia ale wolę żeby była
-        Jakbys jednak zauważył jakieś problemy pozbądz sie jej bez wahania
-        '''
-        reconstructedImage = np.multiply(reconstructedImage, 255.0 / np.max(reconstructedImage))
-        reconstructedImage = reconstructedImage.astype('uint8')
+        self.reconstructedPath = "reconstructed.png"
+        io.imsave(self.reconstructedPath, reconstructedImage)
+        reconstructedImage = reconstructedImage.astype(np.int64)
+        reconstructedImage -= np.amin(reconstructedImage)
+        reconstructedImage = (reconstructedImage / np.amax(reconstructedImage)) * 255
+        reconstructedImage = reconstructedImage.astype(np.int16)
 
-        file_meta = Dataset()
-        file_meta.MediaStorageSOPClassUID = "1.2.840.10018.5.1.4.1.1.7"
-        file_meta.MediaStorageSOPInstanceUID = "1.2.276.0.7240010.3.1.4.3846053626.3968.1286299971.696"
-        file_meta.ImplementationClassUID = "1.2.276.0.7240010.3.0.3.5.5"
+        file_meta = pydicom.dataset.Dataset()
+        file_meta.MediaStorageSOPClassUID = pydicom.uid.generate_uid()
+        file_meta.MediaStorageSOPInstanceUID = pydicom.uid.generate_uid()
+        file_meta.ImplementationClassUID = pydicom.uid.generate_uid()
+        file_meta.TransferSyntaxUID = pydicom.uid.ImplicitVRLittleEndian
 
-        filename = self.dateEdit.date().toString('yyyyMMdd') + self.idTextField.toPlainText()
-        ds = FileDataset(filename + ".dcm", {}, file_meta=file_meta, preamble=b"\0" * 128)
+        patientID = self.idTextField.toPlainText()
+        filename = self.dateEdit.date().toString('yyyyMMdd') + patientID + str(random.randrange(100))
+        ds = pydicom.dataset.FileDataset(filename + ".dcm", {}, file_meta=file_meta, preamble=b"\0" * 128)
+        ds.PatientID = patientID
         ds.PatientName = self.patientNameTextfield.toPlainText() + " " + self.patientSurnameTextfield.toPlainText()
-        ds.PatientID = self.idTextField.toPlainText()
         ds.StudyDate = self.dateEdit.date().toString('yyyyMMdd')
         ds.StudyID = str(ds.StudyDate) + ds.PatientID
+        ds.ImageComment = self.commentsTextField.toPlainText()
         if self.sexCheckbox.isChecked():
             ds.PatientSex = "M"
         else:
             ds.PatientSex = "F"
 
+        ds.SeriesInstanceUID = pydicom.uid.generate_uid()
+        ds.StudyInstanceUID = pydicom.uid.generate_uid()
+        ds.FrameOfReferenceUID = pydicom.uid.generate_uid()
+        ds.SOPClassUID = pydicom.uid.generate_uid()
+        ds.SOPInstanceUID = pydicom.uid.generate_uid()
+
+        ds.Modality = "CT"
+        ds.ImagesInAcquisition = "1"
+        ds.InstanceNumber = 1
         ds.PixelData = reconstructedImage.tobytes()
-        ds.BitsAllocated = 8
+        ds.BitsAllocated = 16
         ds.Rows = len(reconstructedImage)
         ds.Columns = len(reconstructedImage[0])
         ds.PixelRepresentation = 0
@@ -447,12 +487,14 @@ class Ui_MainWindow(object):
         ds.BitsStored = 16
         ds.HighBit = 15
         ds.PhotometricInterpretation = "MONOCHROME2"
+        ds.SmallestImagePixelValue = b'\\x00\\x00'
+        ds.LargestImagePixelValue = b'\\xff\\xff'
 
         ds.is_little_endian = True
         ds.is_implicit_VR = True
         dt = datetime.datetime.now()
         ds.ContentDate = dt.strftime('%Y%m%d')
-        timeStr = dt.strftime('%H%M%S.%f')  # long format with micro seconds
+        timeStr = dt.strftime('%H%M%S.%f')
         ds.ContentTime = timeStr
         ds.save_as(filename + ".dcm")
         ds.file_meta.TransferSyntaxUID = pydicom.uid.ExplicitVRBigEndian
@@ -460,8 +502,7 @@ class Ui_MainWindow(object):
         ds.is_implicit_VR = False
         ds.save_as(filename + ".dcm")
 
-        self.reconstructedPath = "reconstructed.png"
-        io.imsave(self.reconstructedPath, reconstructedImage)
+
 
 
 
