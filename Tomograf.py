@@ -253,6 +253,11 @@ class Ui_MainWindow(object):
                 image[i][j] = (image[i][j] - minn) / (maxx - minn)
         return image
 
+    def getBlackPixel(self, image, reconstructed):
+        for i in range(10, len(image) - 10):
+            for j in range(10, len(image[i]) - 10):
+                if image[i][j] == 0:
+                    return reconstructed[i][j]
 
     def processImage(self, step, numOfDetectors, angleRange):
         img = io.imread(self.imagePath)
@@ -261,8 +266,8 @@ class Ui_MainWindow(object):
         m = len(img[0]) // 2
         n = len(img) // 2
         sinogram = np.zeros((numOfDetectors, int(180 / step)))
-        #radius = ((len(img) ** 2 + len(img[0]) ** 2) ** 0.5) / 2   okrąg opisany na obrazku
-        radius = len(img) / 2                                   #   okrąg wpisany w obrazek
+        radius = ((len(img) ** 2 + len(img[0]) ** 2) ** 0.5) / 2  # okrąg opisany na obrazku
+        #radius = len(img) / 2                                   #   okrąg wpisany w obrazek
         for k in np.arange(1, 180.1, step):             # generacja sinogramu
             angles = np.linspace(k, k + angleRange, numOfDetectors)
             detectorAngles = np.copy(angles)
@@ -443,8 +448,24 @@ class Ui_MainWindow(object):
                     reconstructedImage[i][j] = 0
         io.imsave("rec10.png", reconstructedImage)"""
 
+        reconstructedImage = self.normalizeImage(reconstructedImage)
+        darkPixel = self.getBlackPixel(img, reconstructedImage)
+        for i in range(len(reconstructedImage)):
+            for j in range(len(reconstructedImage[0])):
+                reconstructedImage[i][j] = max(0, reconstructedImage[i][j] - darkPixel)
         self.reconstructedPath = "reconstructed.png"
         io.imsave(self.reconstructedPath, reconstructedImage)
+
+        rmse = 0
+        img = self.normalizeImage(img)
+        for i in range(len(img)):
+            for j in range(len(img[i])):
+                rmse += (img[i][j] - reconstructedImage[i][j]) ** 2
+        rmse /= img.shape[0] * img.shape[1]
+        rmse **= 0.5
+        print(rmse)
+
+
         reconstructedImage = reconstructedImage.astype(np.int64)
         reconstructedImage -= np.amin(reconstructedImage)
         reconstructedImage = (reconstructedImage / np.amax(reconstructedImage)) * 255
