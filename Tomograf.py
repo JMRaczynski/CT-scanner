@@ -16,6 +16,7 @@ import sys
 import random
 import pydicom
 import datetime
+from skimage.exposure import rescale_intensity
 
 
 class Ui_MainWindow(object):
@@ -356,7 +357,7 @@ class Ui_MainWindow(object):
                     for k in range(-20, 21):
                         if 0 <= j + k < len(sinogram):
                             acc += sinogram[j + k][i] * mask[k + 20]
-                    sinogram[j][i] = acc
+                    sinogram[j][i] = max(0, acc)
 
         io.imsave("sinogram.png", resize(sinogram, (191, 251)))
         self.sinogramPath = "sinogram.png"
@@ -440,20 +441,10 @@ class Ui_MainWindow(object):
 
         # KONIEC REKONSTRUKCJI
 
-        """suma = np.sum(sinogram) / len(sinogram[0])
-        for i in range(len(reconstructedImage)):
-            for j in range(len(reconstructedImage[i])):
-                reconstructedImage[i][j] -= suma
-                if reconstructedImage[i][j] < 0:
-                    reconstructedImage[i][j] = 0
-        io.imsave("rec10.png", reconstructedImage)"""
-
         reconstructedImage = self.normalizeImage(reconstructedImage)
-        darkPixel = self.getBlackPixel(img, reconstructedImage)
-        for i in range(len(reconstructedImage)):
-            for j in range(len(reconstructedImage[0])):
-                reconstructedImage[i][j] = max(0, reconstructedImage[i][j] - darkPixel)
-        self.reconstructedPath = "reconstructed.png"
+        self.reconstructedPath = "rec10.png"
+        lo, hi = np.percentile(reconstructedImage, (2, 98))
+        reconstructedImage = rescale_intensity(reconstructedImage, in_range=(lo, hi))
         io.imsave(self.reconstructedPath, reconstructedImage)
 
         rmse = 0
